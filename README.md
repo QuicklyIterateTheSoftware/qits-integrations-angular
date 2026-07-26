@@ -35,7 +35,7 @@ in the capture's goal as JSON — what the app *knew*, not just what it rendered
 Distribution is **git-only, no npm registry** (prototype phase). Consumers install from a commit:
 
 ```bash
-pnpm add "git+https://github.com/wohlben/qits-angular-integration.git#<sha>"
+pnpm add "git+https://github.com/QuicklyIterateTheSoftware/qits-integrations-angular.git#<sha>"
 ```
 
 pnpm clones the repo, installs its devDependencies, runs `prepare` (which builds `dist/`), then
@@ -210,7 +210,7 @@ before any module code, so it stays an inline `index.html` script — the canoni
 Iterate with a local override — **never churn git refs**:
 
 ```bash
-pnpm add "file:../qits-angular-integration"       # or: pnpm link ../qits-angular-integration
+pnpm add "file:../qits-integrations-angular"       # or: pnpm link ../qits-integrations-angular
 ```
 
 Commit a `#<sha>` pin in the consumer only when cutting a consumable state.
@@ -219,11 +219,11 @@ Commit a `#<sha>` pin in the consumer only when cutting a consumable state.
 
 - **The root `package.json` *is* the package** — a git dependency installs the repo root, so the
   root manifest carries name/`exports`/`files`/`prepare`/peers, not the workspace-shell defaults.
-- **`files: ["dist/qits-angular-integration"]` carries the build** — anything outside `files` is dropped when
+- **`files: ["dist/qits-integrations-angular"]` carries the build** — anything outside `files` is dropped when
   pnpm packs the git dep.
-- **`prepare` builds on consumer install** — `ng build qits-angular-integration && check-exports`; that second
+- **`prepare` builds on consumer install** — `ng build qits-integrations-angular && check-exports`; that second
   run (consumer-side) is the whole distribution mechanism.
-- **Root `exports`/`peers` mirror `dist/qits-angular-integration/package.json`** — ng-packagr writes the
+- **Root `exports`/`peers` mirror `dist/qits-integrations-angular/package.json`** — ng-packagr writes the
   authoritative manifest there; the consumer never sees it (they install the root), so the root
   must mirror it. `pnpm check-exports` guards the mirror and is wired into `prepare`.
 
@@ -231,10 +231,10 @@ Commit a `#<sha>` pin in the consumer only when cutting a consumable state.
 
 ```bash
 pnpm dlx @angular/cli@21 new smoke --minimal --skip-git --defaults && cd smoke
-pnpm add "git+file://$(realpath ../qits-angular-integration)#main"   # local git URL
+pnpm add "git+file://$(realpath ../qits-integrations-angular)#main"   # local git URL
 pnpm ng build                                            # compiles against installed dist types
 pnpm remove @qits/angular
-pnpm add "git+https://github.com/wohlben/qits-angular-integration.git#<sha>"   # real remote, SHA-pinned
+pnpm add "git+https://github.com/QuicklyIterateTheSoftware/qits-integrations-angular.git#<sha>"   # real remote, SHA-pinned
 pnpm ng build
 ```
 
@@ -242,8 +242,8 @@ pnpm ng build
 
 | Command | What it does |
 | --- | --- |
-| `pnpm build` | `ng build qits-angular-integration` → APF output in `dist/qits-angular-integration/` |
-| `pnpm test` | `ng test qits-angular-integration` (vitest builder, jsdom) |
+| `pnpm build` | `ng build qits-integrations-angular` → APF output in `dist/qits-integrations-angular/` |
+| `pnpm test` | `ng test qits-integrations-angular` (vitest builder, jsdom) |
 | `pnpm test:browser` | `*.browser.spec.ts` in headless Chromium (style freezing needs a real layout engine); needs a one-time `pnpm exec playwright install chromium` |
-| `pnpm lint` | `ng lint qits-angular-integration` |
-| `pnpm check-exports` | verify root manifest mirrors `dist/qits-angular-integration/package.json` |
+| `pnpm lint` | `ng lint qits-integrations-angular` |
+| `pnpm check-exports` | verify root manifest mirrors `dist/qits-integrations-angular/package.json` |

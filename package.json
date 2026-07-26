@@ -6,25 +6,25 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wohlben/qits-angular-integration.git"
+    "url": "https://github.com/QuicklyIterateTheSoftware/qits-integrations-angular.git"
   },
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "ng": "ng",
-    "build": "ng build qits-angular-integration",
-    "test": "ng test qits-angular-integration",
-    "test:browser": "ng run qits-angular-integration:test-browser",
-    "lint": "ng lint qits-angular-integration",
+    "build": "ng build qits-integrations-angular",
+    "test": "ng test qits-integrations-angular",
+    "test:browser": "ng run qits-integrations-angular:test-browser",
+    "lint": "ng lint qits-integrations-angular",
     "check-exports": "node scripts/check-exports.mjs",
-    "prepare": "ng build qits-angular-integration && node scripts/check-exports.mjs"
+    "prepare": "ng build qits-integrations-angular && node scripts/check-exports.mjs"
   },
   "files": [
-    "dist/qits-angular-integration"
+    "dist/qits-integrations-angular"
   ],
   "exports": {
     ".": {
-      "types": "./dist/qits-angular-integration/types/qits-angular.d.ts",
-      "default": "./dist/qits-angular-integration/fesm2022/qits-angular.mjs"
+      "types": "./dist/qits-integrations-angular/types/qits-angular.d.ts",
+      "default": "./dist/qits-integrations-angular/fesm2022/qits-angular.mjs"
     }
   },
   "sideEffects": false,

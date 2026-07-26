@@ -12,7 +12,7 @@
     "isolatedModules": true,
     "experimentalDecorators": true,
     "paths": {
-      "qits-angular-integration": ["./dist/qits-angular-integration"]
+      "qits-integrations-angular": ["./dist/qits-integrations-angular"]
     },
     "importHelpers": true,
     "target": "ES2022",
@@ -27,10 +27,10 @@
   "files": [],
   "references": [
     {
-      "path": "./projects/qits-angular-integration/tsconfig.lib.json"
+      "path": "./projects/qits-integrations-angular/tsconfig.lib.json"
     },
     {
-      "path": "./projects/qits-angular-integration/tsconfig.spec.json"
+      "path": "./projects/qits-integrations-angular/tsconfig.spec.json"
     }
   ]
 }

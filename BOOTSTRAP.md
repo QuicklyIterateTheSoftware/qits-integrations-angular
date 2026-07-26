@@ -8,6 +8,13 @@
 > file. Agent: work through the steps in order; where a step says *verify*, actually run the
 > command and read the output.
 
+> **Historical record — names below are stale.** This document describes the bootstrap as it was
+> executed, and is kept verbatim. Since then the repo moved to
+> `QuicklyIterateTheSoftware/qits-integrations-angular` (a submodule of `qits-qits` at
+> `integrations/qits-integrations-angular`) and the Angular project was renamed
+> `qits-angular-integration` → `qits-integrations-angular`. For the current layout and commands
+> read `AGENTS.md` and `README.md`, not this file.
+
 ## Context (what this repo is)
 
 This repository will hold **`@qits/angular`**, the integration library for Angular apps managed

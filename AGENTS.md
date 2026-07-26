@@ -107,32 +107,32 @@ marked optional via a pnpm `packageExtensions` entry here and in every consumer.
 
 ## Commands
 
-- `pnpm build` — `ng build qits-angular-integration` → APF output in `dist/qits-angular-integration/`
-- `pnpm test` — `ng test qits-angular-integration` (vitest builder, jsdom; excludes `*.browser.spec.ts`)
+- `pnpm build` — `ng build qits-integrations-angular` → APF output in `dist/qits-integrations-angular/`
+- `pnpm test` — `ng test qits-integrations-angular` (vitest builder, jsdom; excludes `*.browser.spec.ts`)
 - `pnpm test:browser` — `*.browser.spec.ts` in headless Chromium (`ng run
-  qits-angular-integration:test-browser`); one-time `pnpm exec playwright install chromium`
-- `pnpm lint` — `ng lint qits-angular-integration`
-- `pnpm check-exports` — verify the root manifest mirrors `dist/qits-angular-integration/package.json`
+  qits-integrations-angular:test-browser`); one-time `pnpm exec playwright install chromium`
+- `pnpm lint` — `ng lint qits-integrations-angular`
+- `pnpm check-exports` — verify the root manifest mirrors `dist/qits-integrations-angular/package.json`
 
 ## Workspace layout & the root-manifest takeover
 
 Standard `ng new` workspace (`--create-application=false`) plus one library project under
-`projects/qits-angular-integration/`. The one non-standard thing:
+`projects/qits-integrations-angular/`. The one non-standard thing:
 
 **The root `package.json` *is* the installable package.** Distribution is git-only — a consumer's
 `pnpm add "git+https://…#<sha>"` installs the **repo root**, not a published tarball. So the root
 manifest was rewritten from the generated workspace shell to *be* `@qits/angular`: real `name`,
-`exports`/`files` into the built `dist/qits-angular-integration/`, `prepare` as the consumer-side build hook,
+`exports`/`files` into the built `dist/qits-integrations-angular/`, `prepare` as the consumer-side build hook,
 real `peerDependencies`. The Angular runtime lives in `devDependencies` (needed to build locally,
 never shipped — consumers get only `dist/` via `files`).
 
 ### Packaging invariants (don't break)
 
 - **Root manifest is the package** — name/`exports`/`files`/`prepare`/peers live at the root.
-- **`files: ["dist/qits-angular-integration"]`** carries the build; anything outside is dropped on pack.
-- **`prepare` = `ng build qits-angular-integration && check-exports`** — runs on consumer install; that is the
+- **`files: ["dist/qits-integrations-angular"]`** carries the build; anything outside is dropped on pack.
+- **`prepare` = `ng build qits-integrations-angular && check-exports`** — runs on consumer install; that is the
   distribution mechanism.
-- **Root `exports`/`peers` mirror `dist/qits-angular-integration/package.json`** — never hand-edit them on a
+- **Root `exports`/`peers` mirror `dist/qits-integrations-angular/package.json`** — never hand-edit them on a
   hunch. Run `pnpm build && pnpm check-exports` and copy what dist actually says. `check-exports`
   is wired into `prepare`.
 - **`private: true` stays** — it blocks registry publishing (intended), not git installs.
@@ -140,7 +140,7 @@ never shipped — consumers get only `dist/` via `files`).
 
 ## Conventions (inherited from the qits webui)
 
-- **Every export goes through `projects/qits-angular-integration/src/public-api.ts`.**
+- **Every export goes through `projects/qits-integrations-angular/src/public-api.ts`.**
 - Standalone components only; `ChangeDetectionStrategy.OnPush`.
 - `input()` / `output()` / `computed()` functions — never the decorator forms.
 - `inject()` over constructor injection.
