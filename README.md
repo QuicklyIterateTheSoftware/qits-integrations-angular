@@ -129,9 +129,11 @@ pre-compression) caps the frozen DOM; over it the snapshot truncates depth-first
 `dom.truncated`. The freeze core is exported as `freezeDocument()` for reuse.
 
 Where the POST goes: framed under the qits daemon proxy (`/daemon/{ws}/{daemon}/` base) the frame
-origin *is* qits, so the button posts same-origin to `/api/capture`; everywhere else it uses the
-relayed `ingestUrl` verbatim — which must then be **browser-reachable** (deployed apps configure a
-public URL).
+origin *is* qits, so the button posts same-origin to `/workspaces/api/capture` — the capture ingest
+is `qits-workspaces`, and the qits gateway routes `/<segment>/*` verbatim by prefix, so the segment
+is part of the address and not something the gateway adds. Everywhere else it uses the relayed
+`ingestUrl` verbatim — which must then be **browser-reachable** (deployed apps configure a public
+URL).
 
 ### State snapshots
 
@@ -182,7 +184,11 @@ web-view path prefix alike):
   deployed build; `capture: null` hides the button. The library self-stamps the relayed
   `qits.repository.id`/`qits.workspace.id` into the payload; the ingest fails closed on identity
   it can't resolve.
-- `POST api/otel/v1/{traces|logs}` — verbatim OTLP protobuf passthrough to the real collector.
+- `POST api/otel/v1/{traces|logs}` — verbatim OTLP protobuf passthrough to the real collector,
+  which is `POST /observability/api/otel/v1/{traces|logs|metrics}` on qits-observability behind
+  its gateway segment. That upstream is the backend's `OTEL_EXPORTER_OTLP_ENDPOINT`, not this
+  path: the library stays base-relative and carries **no** qits segment, because it addresses the
+  app's own backend and not qits.
   (Capture has **no** passthrough: the browser posts straight to qits' CORS-open ingest URL.)
 
 Both resources are small app-side copies for Quarkus backends — see the

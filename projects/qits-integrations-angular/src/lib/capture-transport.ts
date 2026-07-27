@@ -14,10 +14,16 @@ export const DAEMON_BASE_PATTERN = /^\/daemon\/[^/]+\/[^/]+\//;
  * Framed under the daemon proxy the frame origin is qits itself, so the same-origin path wins
  * there (CORS moot); everywhere else the relayed URL is used verbatim (deployed apps configure a
  * browser-reachable one).
+ *
+ * The same-origin path carries qits-workspaces' gateway segment: the capture ingest is
+ * `qits-workspaces`, and the gateway routes `/<segment>/*` verbatim by prefix with no rewriting,
+ * so the service itself serves `/workspaces/api/capture` and there is no unprefixed form to fall
+ * back to. This is the *origin-rooted* branch only — the relayed ingestUrl below is composed
+ * server-side and already carries whatever prefix its composer chose, so it stays verbatim.
  */
 export function captureTargetUrl(relay: CaptureRelay): string {
   if (DAEMON_BASE_PATTERN.test(location.pathname)) {
-    return new URL('/api/capture', location.origin).href;
+    return new URL('/workspaces/api/capture', location.origin).href;
   }
   return relay.ingestUrl;
 }
@@ -26,6 +32,12 @@ export function captureTargetUrl(relay: CaptureRelay): string {
  * Probe the capture ingest with a bare OPTIONS: qits' CORS route answers 204 where the API
  * exists; a backend without it 404s and an unreachable host throws — both mean "hide the
  * button". A relayed config section proves intent, this proves the POST would actually land.
+ *
+ * Deliberately routed through {@link captureTargetUrl} rather than composing its own URL: qits'
+ * CORS route is a raw Vert.x route registered with a literal path, so it does *not* move with the
+ * JAX-RS resource automatically and had to be prefixed to `/workspaces/api/capture` by hand at
+ * the other end. Probe and POST addressing one function is what keeps the two halves from
+ * drifting — a probe that 404s while the POST would land silently hides the button.
  */
 export async function captureApiAvailable(relay: CaptureRelay): Promise<boolean> {
   try {

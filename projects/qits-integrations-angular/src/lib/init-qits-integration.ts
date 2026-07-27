@@ -37,6 +37,10 @@ export const OTLP_PASSTHROUGH_URL_PATTERN = /\/api\/otel\/v1\//;
 
 // The exporters use a user-provided url verbatim (no /v1/<signal> appended) and resolve it
 // against location.href, not <base> — so build absolute per-signal URLs from the rebased base.
+//
+// Base-relative on purpose: this addresses the *consumer app's own* backend (its OtelProxyResource
+// copy), never qits directly. It therefore does NOT carry a qits gateway segment, and adding one
+// would point every consumer app at a path its own backend does not serve.
 export function otlpExportUrl(signal: 'traces' | 'logs'): string {
   return new URL(`api/otel/v1/${signal}`, document.baseURI).href;
 }
@@ -47,6 +51,13 @@ export function otlpExportUrl(signal: 'traces' | 'logs'): string {
  * qits daemon's otel toggle is off). When lit, export OTLP protobuf to the backend's own
  * api/otel/v1/* passthrough — base-relative like every other API call, so it works at `/` and
  * under the qits daemon web-view prefix alike.
+ *
+ * Two hops, and only the second one is qits'. The browser reaches the app's own backend
+ * (`OtelProxyResource`, the byte-verbatim copy from the qits fixture); that resource forwards to
+ * `${OTEL_EXPORTER_OTLP_ENDPOINT}/v1/{signal}`, which is now
+ * `POST /observability/api/otel/v1/{traces,logs,metrics}` on qits-observability behind its own
+ * gateway segment. Repointing the upstream is the backend's config, not this URL: the library
+ * stays base-relative so the app keeps working standalone, at `/`, and framed under qits alike.
  *
  * Must complete before bootstrapApplication: Angular's FetchBackend captures window.fetch when it
  * is first used, so the fetch instrumentation has to patch it first for the app's API calls to

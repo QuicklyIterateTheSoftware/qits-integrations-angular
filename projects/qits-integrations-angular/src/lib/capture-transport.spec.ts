@@ -45,7 +45,12 @@ describe('captureTargetUrl', () => {
 
   it('posts same-origin under a /daemon/{ws}/{daemon}/ base — the frame origin IS qits', () => {
     history.replaceState(null, '', '/daemon/work/daemon-1/greeting/anna');
-    expect(captureTargetUrl(RELAY)).toBe(new URL('/api/capture', location.origin).href);
+    expect(captureTargetUrl(RELAY)).toBe(new URL('/workspaces/api/capture', location.origin).href);
+  });
+
+  it('carries qits-workspaces gateway segment: the gateway routes by prefix, verbatim', () => {
+    history.replaceState(null, '', '/daemon/work/daemon-1/greeting/anna');
+    expect(new URL(captureTargetUrl(RELAY)).pathname).toBe('/workspaces/api/capture');
   });
 
   it('the daemon base needs both segments', () => {
@@ -56,6 +61,7 @@ describe('captureTargetUrl', () => {
 
 describe('captureApiAvailable', () => {
   let originalFetch: typeof fetch;
+  const originalPath = location.pathname;
 
   beforeEach(() => {
     originalFetch = window.fetch;
@@ -63,6 +69,7 @@ describe('captureApiAvailable', () => {
 
   afterEach(() => {
     window.fetch = originalFetch;
+    history.replaceState(null, '', originalPath);
   });
 
   it('is available when the target answers the OPTIONS probe (qits CORS route: 204)', async () => {
@@ -70,6 +77,19 @@ describe('captureApiAvailable', () => {
     window.fetch = mock as unknown as typeof fetch;
     await expect(captureApiAvailable(RELAY)).resolves.toBe(true);
     expect(mock).toHaveBeenCalledWith(RELAY.ingestUrl, { method: 'OPTIONS' });
+  });
+
+  // The CORS preflight is a raw Vert.x route and moved to the segment by hand, separately from
+  // the JAX-RS POST. Probe and POST must address the same path or the button silently vanishes.
+  it('probes the same prefixed path the POST would use when framed under the proxy', async () => {
+    history.replaceState(null, '', '/daemon/work/daemon-1/greeting/anna');
+    const mock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    window.fetch = mock as unknown as typeof fetch;
+    await expect(captureApiAvailable(RELAY)).resolves.toBe(true);
+    expect(mock).toHaveBeenCalledWith(captureTargetUrl(RELAY), { method: 'OPTIONS' });
+    expect(mock).toHaveBeenCalledWith(new URL('/workspaces/api/capture', location.origin).href, {
+      method: 'OPTIONS',
+    });
   });
 
   it('is unavailable on a 404 (backend without the ingest)', async () => {
