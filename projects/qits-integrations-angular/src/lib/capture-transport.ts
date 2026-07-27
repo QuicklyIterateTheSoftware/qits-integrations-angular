@@ -2,16 +2,28 @@ import type { CaptureRelay } from './capture-config';
 import type { CapturePayload } from './capture-payload';
 
 /**
- * The daemon web-view proxy base (/daemon/{workspaceId}/{daemonId}/) — when the app is served
- * under it, the frame origin IS qits. Same shape the fixture's index.html uses for its <base>
- * rebase.
+ * The service web-view proxy base (/workspaces/service/{workspaceId}/{serviceId}/) — when the app
+ * is served under it, the frame origin IS qits. Same shape the fixture's index.html uses for its
+ * <base> rebase.
+ *
+ * This was `/daemon/{workspaceId}/{daemonId}/` and matched nothing for a while: qits renamed
+ * DaemonProxyRoute to ServiceProxyRoute (`/service/`) without updating this copy, so the
+ * same-origin branch below never fired. The prefix now tracks qits-workspaces'
+ * `ServiceProxyPath.PREFIX`, which is the single source of truth for the shape — the proxy route,
+ * the `proxyPath` projection and the `QITS_PUBLIC_BASE` baked into the dev server at spawn all
+ * read it, so a drift like the last one moves all three at once and this constant is the only
+ * copy outside that repo.
+ *
+ * Deliberately not anchored at the end: a service definition's `webView.basePath` appends a
+ * further segment (`servedBase`), and a page under that base is still framed on the qits origin.
+ * Two path parameters are required, though — one segment alone is not the proxy.
  */
-export const DAEMON_BASE_PATTERN = /^\/daemon\/[^/]+\/[^/]+\//;
+export const SERVICE_PROXY_BASE_PATTERN = /^\/workspaces\/service\/[^/]+\/[^/]+\//;
 
 /**
  * Where to POST: the relayed ingestUrl is composed for container-to-qits reachability (`qits` on
  * qits-net, host.docker.internal, …) and is generally not resolvable from the user's browser.
- * Framed under the daemon proxy the frame origin is qits itself, so the same-origin path wins
+ * Framed under the service proxy the frame origin is qits itself, so the same-origin path wins
  * there (CORS moot); everywhere else the relayed URL is used verbatim (deployed apps configure a
  * browser-reachable one).
  *
@@ -22,7 +34,7 @@ export const DAEMON_BASE_PATTERN = /^\/daemon\/[^/]+\/[^/]+\//;
  * server-side and already carries whatever prefix its composer chose, so it stays verbatim.
  */
 export function captureTargetUrl(relay: CaptureRelay): string {
-  if (DAEMON_BASE_PATTERN.test(location.pathname)) {
+  if (SERVICE_PROXY_BASE_PATTERN.test(location.pathname)) {
     return new URL('/workspaces/api/capture', location.origin).href;
   }
   return relay.ingestUrl;

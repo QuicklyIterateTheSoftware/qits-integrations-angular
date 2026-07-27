@@ -1,7 +1,7 @@
 import type { CapturePayload } from './capture-payload';
 import {
   CaptureError,
-  DAEMON_BASE_PATTERN,
+  SERVICE_PROXY_BASE_PATTERN,
   captureApiAvailable,
   captureTargetUrl,
   postCapture,
@@ -38,24 +38,24 @@ describe('captureTargetUrl', () => {
     history.replaceState(null, '', originalPath);
   });
 
-  it('uses the relayed ingestUrl verbatim when not framed under the daemon proxy', () => {
+  it('uses the relayed ingestUrl verbatim when not framed under the service proxy', () => {
     history.replaceState(null, '', '/greeting/anna');
     expect(captureTargetUrl(RELAY)).toBe('http://qits:8080/api/capture');
   });
 
-  it('posts same-origin under a /daemon/{ws}/{daemon}/ base — the frame origin IS qits', () => {
-    history.replaceState(null, '', '/daemon/work/daemon-1/greeting/anna');
+  it('posts same-origin under a /workspaces/service/{ws}/{svc}/ base — the frame origin IS qits', () => {
+    history.replaceState(null, '', '/workspaces/service/work/svc-1/greeting/anna');
     expect(captureTargetUrl(RELAY)).toBe(new URL('/workspaces/api/capture', location.origin).href);
   });
 
   it('carries qits-workspaces gateway segment: the gateway routes by prefix, verbatim', () => {
-    history.replaceState(null, '', '/daemon/work/daemon-1/greeting/anna');
+    history.replaceState(null, '', '/workspaces/service/work/svc-1/greeting/anna');
     expect(new URL(captureTargetUrl(RELAY)).pathname).toBe('/workspaces/api/capture');
   });
 
-  it('the daemon base needs both segments', () => {
-    expect(DAEMON_BASE_PATTERN.test('/daemon/only-one/')).toBe(false);
-    expect(DAEMON_BASE_PATTERN.test('/daemon/ws/d1/')).toBe(true);
+  it('the service proxy base needs both path parameters', () => {
+    expect(SERVICE_PROXY_BASE_PATTERN.test('/workspaces/service/only-one/')).toBe(false);
+    expect(SERVICE_PROXY_BASE_PATTERN.test('/workspaces/service/ws/svc-1/')).toBe(true);
   });
 });
 
@@ -82,7 +82,7 @@ describe('captureApiAvailable', () => {
   // The CORS preflight is a raw Vert.x route and moved to the segment by hand, separately from
   // the JAX-RS POST. Probe and POST must address the same path or the button silently vanishes.
   it('probes the same prefixed path the POST would use when framed under the proxy', async () => {
-    history.replaceState(null, '', '/daemon/work/daemon-1/greeting/anna');
+    history.replaceState(null, '', '/workspaces/service/work/svc-1/greeting/anna');
     const mock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
     window.fetch = mock as unknown as typeof fetch;
     await expect(captureApiAvailable(RELAY)).resolves.toBe(true);

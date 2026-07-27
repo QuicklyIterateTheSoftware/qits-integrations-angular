@@ -128,7 +128,7 @@ Bring your own trigger with `withFeatureCapture({ renderButton: false })` and th
 pre-compression) caps the frozen DOM; over it the snapshot truncates depth-first and sets
 `dom.truncated`. The freeze core is exported as `freezeDocument()` for reuse.
 
-Where the POST goes: framed under the qits daemon proxy (`/daemon/{ws}/{daemon}/` base) the frame
+Where the POST goes: framed under the qits service proxy (`/workspaces/service/{ws}/{svc}/` base) the frame
 origin *is* qits, so the button posts same-origin to `/workspaces/api/capture` — the capture ingest
 is `qits-workspaces`, and the qits gateway routes `/<segment>/*` verbatim by prefix, so the segment
 is part of the address and not something the gateway adds. Everywhere else it uses the relayed

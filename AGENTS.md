@@ -64,7 +64,7 @@ style:
   with `app-` — the subtree `captureNow(target)` freezes as the payload's `selection` (the pick
   and everything around it, trimmed to the component boundary; falls back to the picked element).
   `selectorFor()` (ported from the webui picker) records the pick's provenance.
-- `capture-transport.ts` — framed under the daemon proxy (`/daemon/{ws}/{d}/` base) the frame
+- `capture-transport.ts` — framed under the service proxy (`/workspaces/service/{ws}/{svc}/` base) the frame
   origin IS qits, so POST same-origin `/workspaces/api/capture` (the ingest is `qits-workspaces`
   and the gateway routes `/<segment>/*` verbatim by prefix — the segment is the address, not a
   rewrite); else the relayed `ingestUrl` verbatim
