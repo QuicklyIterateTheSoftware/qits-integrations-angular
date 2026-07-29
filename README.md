@@ -17,10 +17,15 @@ traces + logs through its own backend's passthrough:
 - `code.*` caller attribution on fetch spans (which file/method issued the request);
 - uncaught errors shipped as ERROR-severity log records via a provided Angular `ErrorHandler`.
 
-Everything is gated by the backend's `api/config.json` relay: an app running standalone (or with
-the qits daemon's otel toggle off) gets `telemetry: null` and the library stays **dark** — no SDK
-objects constructed, `window.fetch` untouched, inert dead weight. There is no build-time
-configuration; the config relay is the only runtime channel.
+Everything is gated by the backend's `api/config.json` relay: an app whose backend reports no
+telemetry target gets `telemetry: null` and the library stays **dark** — no SDK objects constructed,
+`window.fetch` untouched, inert dead weight. There is no build-time configuration; the config relay
+is the only runtime channel.
+
+That is the standalone case today and also the qits case: qits currently injects no
+`OTEL_EXPORTER_OTLP_ENDPOINT` into the services it launches, so a workspace's dev server has no
+telemetry target to report. This library needs no change when that comes back — the relay is the
+only thing it reads.
 
 The library also ships **feature capture** (`withFeatureCapture()`): a floaty button that
 snapshots the running app — the rendered DOM with effective styles frozen inline, route, viewport
