@@ -53,5 +53,5 @@ steps:
         echo "@qits/angular@$ver is already published — skipping"
       else
         echo "publishing @qits/angular@$ver"
-        npm publish dist/qits-integrations-angular
+        npm publish ./dist/qits-integrations-angular
       fi
