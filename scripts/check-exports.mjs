@@ -1,38 +1,96 @@
-import { readFileSync } from 'node:fs';
+// Guards the thing that actually ships: dist/qits-integrations-angular/package.json, the manifest
+// ng-packagr generates from projects/qits-integrations-angular/package.json and that `npm publish`
+// uploads verbatim. The root manifest is the workspace harness — it is not the package and must
+// never become publishable again.
+//
+// Run after `pnpm build`; the CI pipeline builds before it publishes, so every failure here is a
+// failure before anything reaches the registry.
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const DIST = 'dist/qits-integrations-angular';
+const SOURCE = 'projects/qits-integrations-angular/package.json';
 
 const root = JSON.parse(readFileSync('package.json', 'utf8'));
-const dist = JSON.parse(readFileSync('dist/qits-integrations-angular/package.json', 'utf8'));
+const source = JSON.parse(readFileSync(SOURCE, 'utf8'));
+const dist = JSON.parse(readFileSync(join(DIST, 'package.json'), 'utf8'));
 
 let failed = false;
-const rootEntry = root.exports['.'];
-const distEntry = dist.exports['.'];
+const fail = (message) => {
+  console.error(message);
+  failed = true;
+};
+
+// The root is the harness. `private: true` here is what stops a stray publish from the checkout
+// root shipping the workspace instead of the library.
+if (root.private !== true) {
+  fail('the workspace root must keep "private": true — it is the harness, not the package');
+}
+for (const field of ['files', 'exports']) {
+  if (root[field]) {
+    fail(
+      `the workspace root declares "${field}" — that is the retired git-install shape; the published manifest is ${DIST}/package.json`,
+    );
+  }
+}
+
+// projects/…/package.json is the single source of truth for identity; ng-packagr copies it through.
+if (dist.name !== source.name) {
+  fail(`name drift: ${SOURCE} says ${source.name}, ${DIST} says ${dist.name}`);
+}
+if (dist.version !== source.version) {
+  fail(`version drift: ${SOURCE} says ${source.version}, ${DIST} says ${dist.version}`);
+}
+
+// A private manifest is one npm refuses to publish, so the publish step would fail at the very end
+// of a long green pipeline. Fail here instead, and fix it in SOURCE — never by editing dist/.
+if (dist.private) {
+  fail(`${DIST}/package.json carries "private": true — npm publish refuses it; remove it from ${SOURCE}`);
+}
+for (const field of ['description', 'license']) {
+  if (!dist[field]) {
+    fail(`${DIST}/package.json has no "${field}" — add it to ${SOURCE}`);
+  }
+}
+
+// The entry points a consumer resolves have to be in the tarball, not just in the manifest.
+const entry = dist.exports?.['.'] ?? {};
 for (const key of ['types', 'default']) {
-  const expected = './dist/qits-integrations-angular/' + distEntry[key].replace(/^\.\//, '');
-  if (rootEntry[key] !== expected) {
-    console.error(`exports drift: root exports['.'].${key} is ${rootEntry[key]}, dist says ${expected}`);
-    failed = true;
+  const target = entry[key];
+  if (!target) {
+    fail(`${DIST}/package.json exports["."].${key} is missing`);
+  } else if (!existsSync(join(DIST, target))) {
+    fail(`${DIST}/package.json exports["."].${key} points at ${target}, which is not in ${DIST}`);
   }
 }
-for (const [pkg, range] of Object.entries(dist.peerDependencies ?? {})) {
-  if (root.peerDependencies?.[pkg] !== range) {
-    console.error(`peer drift: dist declares ${pkg}@${range}, root has ${root.peerDependencies?.[pkg]}`);
-    failed = true;
-  }
-}
-// The consumer's package manager resolves the ROOT manifest's dependencies (git deps install the
-// repo root), while ng-packagr emits dist's from projects/qits-integrations-angular/package.json — both ways
-// of drifting ship a package that can't resolve its imports.
+
+// The workspace builds and tests against its own node_modules while the consumer resolves what the
+// published manifest declares. Both directions of drift ship a package whose imports resolve for
+// nobody but us.
 for (const [pkg, range] of Object.entries(dist.dependencies ?? {})) {
   if (root.dependencies?.[pkg] !== range) {
-    console.error(`dependency drift: dist declares ${pkg}@${range}, root has ${root.dependencies?.[pkg]}`);
-    failed = true;
+    fail(
+      `dependency drift: the published manifest declares ${pkg}@${range}, the workspace root has ${root.dependencies?.[pkg]}`,
+    );
   }
 }
 for (const pkg of Object.keys(root.dependencies ?? {})) {
   if (!dist.dependencies?.[pkg]) {
-    console.error(`dependency drift: root declares ${pkg}, missing from dist (add it to projects/qits-integrations-angular/package.json)`);
-    failed = true;
+    fail(
+      `dependency drift: the workspace root declares ${pkg}, missing from the published manifest (add it to ${SOURCE})`,
+    );
   }
 }
+
+// Peers are the consumer's to provide, but they must be resolvable here or neither the build nor
+// the specs prove anything about a peer range this package actually declares.
+for (const [pkg, range] of Object.entries(dist.peerDependencies ?? {})) {
+  if (!root.devDependencies?.[pkg]) {
+    fail(
+      `peer drift: the published manifest declares peer ${pkg}@${range}, the workspace root does not devDepend on it`,
+    );
+  }
+}
+
 if (failed) process.exit(1);
-console.log('manifests in sync: root mirrors dist (exports + peers + dependencies)');
+console.log(`publishable: ${dist.name}@${dist.version} in ${DIST} (identity, entry points, deps and peers check out)`);

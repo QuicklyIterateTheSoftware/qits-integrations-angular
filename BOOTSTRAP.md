@@ -8,12 +8,23 @@
 > file. Agent: work through the steps in order; where a step says *verify*, actually run the
 > command and read the output.
 
-> **Historical record — names below are stale.** This document describes the bootstrap as it was
-> executed, and is kept verbatim. Since then the repo moved to
+> **Historical record — names and the distribution model below are stale.** This document describes
+> the bootstrap as it was executed, and is kept verbatim. Since then the repo moved to
 > `QuicklyIterateTheSoftware/qits-integrations-angular` (a submodule of `qits-qits` at
 > `integrations/qits-integrations-angular`) and the Angular project was renamed
-> `qits-angular-integration` → `qits-integrations-angular`. For the current layout and commands
-> read `AGENTS.md` and `README.md`, not this file.
+> `qits-angular-integration` → `qits-integrations-angular`.
+>
+> More importantly, **the root-manifest takeover this document's Step 2 builds has been undone.**
+> qits has its own npm registry now, so the published artifact is `dist/qits-integrations-angular`
+> — the ng-packagr output, pushed by `.config/qits/ci-post-receive.yml` — and
+> `projects/qits-integrations-angular/package.json` is the single source of truth for the published
+> manifest. The root's duplicated `name`/`version`, its `files`/`exports` into `dist/`, and the
+> `prepare` build hook are gone with the git-install path they served; a registry tarball ships
+> prebuilt, so no consumer builds anything and none needs the `pnpm.onlyBuiltDependencies`
+> allowlist. `private: true` still stays on the root, for the reason locked decision 1 gives — it
+> blocks publishing the **root** — and that is now a statement about the workspace harness only,
+> since `dist/` publishes on its own. For the current layout and commands read `AGENTS.md` and
+> `README.md`, not this file.
 
 ## Context (what this repo is)
 
@@ -53,6 +64,9 @@ the `files` field. Every decision below serves that pipeline.
    (`private: true` **stays** — it blocks only registry publishing, which is exactly the
    decision, and does not affect git installs: verified, pnpm packs and installs private
    packages from git fine.)
+   *(Superseded: the takeover is undone, but `private: true` outlived the reason given here —
+   see the note at the top. It now blocks publishing the workspace **harness**, while the real
+   package, `dist/qits-integrations-angular`, publishes to qits' registry.)*
 2. **Generated wiring is accepted as-is.** Whatever builders/tsconfig shapes
    `@angular/cli@21` scaffolds for the library (build via ng-packagr, unit tests via the vitest
    builder) are kept — no hand-tuning of `angular.json` beyond what Step 2 lists. If the

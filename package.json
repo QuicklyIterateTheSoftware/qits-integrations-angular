@@ -1,8 +1,8 @@
 {
-  "name": "@qits/angular",
-  "version": "0.0.1",
+  "name": "qits-integrations-angular",
+  "version": "0.0.0",
   "private": true,
-  "description": "qits integration for Angular apps: config.json-gated OTEL telemetry (traces, logs, route/interaction/caller enrichment), feature capture, and state snapshots.",
+  "description": "Angular workspace that builds @qits/angular. The published package is the ng-packagr output in dist/qits-integrations-angular; this manifest is the harness and stays unpublishable.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -15,23 +15,7 @@
     "test": "ng test qits-integrations-angular",
     "test:browser": "ng run qits-integrations-angular:test-browser",
     "lint": "ng lint qits-integrations-angular",
-    "check-exports": "node scripts/check-exports.mjs",
-    "prepare": "ng build qits-integrations-angular && node scripts/check-exports.mjs"
-  },
-  "files": [
-    "dist/qits-integrations-angular"
-  ],
-  "exports": {
-    ".": {
-      "types": "./dist/qits-integrations-angular/types/qits-angular.d.ts",
-      "default": "./dist/qits-integrations-angular/fesm2022/qits-angular.mjs"
-    }
-  },
-  "sideEffects": false,
-  "peerDependencies": {
-    "@angular/core": "^21.2.0",
-    "@angular/router": "^21.2.0",
-    "@ngrx/signals": "^21.0.0"
+    "check-exports": "node scripts/check-exports.mjs"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

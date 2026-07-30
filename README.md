@@ -37,30 +37,39 @@ in the capture's goal as JSON — what the app *knew*, not just what it rendered
 
 ## Install
 
-Distribution is **git-only, no npm registry** (prototype phase). Consumers install from a commit:
+`@qits/angular` is published to qits' own npm registry, hosted by qits-artifacts. Nothing is
+published to npmjs.org, so a consumer routes the `@qits` scope — and, ideally, everything else —
+through the platform. One committed `.npmrc` carries the routing and no credential:
 
-```bash
-pnpm add "git+https://github.com/QuicklyIterateTheSoftware/qits-integrations-angular.git#<sha>"
+```ini
+registry=http://localhost:8081/artifacts/npm/npmjs/   # pull-through cache of npmjs
+@qits:registry=http://localhost:8081/artifacts/npm/npm/
 ```
 
-pnpm clones the repo, installs its devDependencies, runs `prepare` (which builds `dist/`), then
-packs using the `files` field.
+```bash
+pnpm add @qits/angular
+```
+
+Those are the **local platform's** host-published addresses — the same port a developer on the
+deployment host already dials. Inside the platform's own network the aliases are
+`http://qits-artifacts:8080/artifacts/npm/{npmjs,npm}/`, which is what qits-ci's pipelines write
+into `~/.npmrc` from `$QITS_NPM_PROXY_URL` / `$QITS_NPM_REGISTRY_URL`; a consumer repo's committed
+file is overwritten by that preamble in CI, so it only has to be right for humans. The registry
+takes no credential in either direction — see the qits-artifacts README for the posture.
+
+The tarball ships **prebuilt** (the ng-packagr output), so an install runs no build: no `prepare`
+hook, no `pnpm.onlyBuiltDependencies` allowlist, no Angular toolchain in the consumer.
 
 **Peers:** `@angular/core`, `@angular/router`, and `@ngrx/signals` (^21). The ngrx peer is
 required even if you never call `withQitsSnapshot` — the library's single bundle imports it
 statically, so it must be resolvable in every consumer.
 
-**Required consumer-side step:** pnpm 10 gates dependency lifecycle scripts, and the git-dep
-`prepare` build is *not* auto-exempt (verified against pnpm 10.33.0 — the install fails with
-`ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED` otherwise). Allowlist this package in the **consumer's**
-`package.json`:
-
-```json
-{ "pnpm": { "onlyBuiltDependencies": ["@qits/angular"] } }
-```
-
-(pnpm's error also accepts the same key in `pnpm-workspace.yaml`; the `package.json` form above is
-what this repo verified.)
+> **Historical note.** Before the registry existed, distribution was git-only: consumers ran
+> `pnpm add "git+https://…#<sha>"`, which installed the **repo root** and built it on their
+> machine through a `prepare` hook — and needed `{"pnpm": {"onlyBuiltDependencies":
+> ["@qits/angular"]}}` in their own manifest to let that hook run under pnpm 10. Both are gone.
+> A `#<sha>` pin still resolves against the commits that carried that shape, but nothing on `main`
+> supports it: the root manifest is a workspace harness now and installs as an empty package.
 
 **Zoneless apps:** `@opentelemetry/instrumentation-user-interaction` (a dependency of this
 library) declares a hard `zone.js` peer it doesn't actually need in a zoneless app. Mark it
@@ -216,37 +225,53 @@ before any module code, so it stays an inline `index.html` script — the canoni
 </script>
 ```
 
+## Releasing
+
+There is no release command. `.config/qits/ci-post-receive.yml` runs lint, the jsdom specs and the
+build on every push to a tracked branch, then **publish-if-absent**: it reads the version from
+`projects/qits-integrations-angular/package.json`, asks the registry whether that version exists,
+and publishes `dist/qits-integrations-angular` only when it does not. So a release is an ordinary
+commit that bumps that one field, and doc-only pushes, re-runs and reverts stay green without
+touching the registry. Published versions are immutable — the registry rejects a re-publish, which
+is why the step never tries one.
+
 ## Developing against a consumer
 
-Iterate with a local override — **never churn git refs**:
+Iterate with a local override — **never bump versions to move code**:
 
 ```bash
-pnpm add "file:../qits-integrations-angular"       # or: pnpm link ../qits-integrations-angular
+pnpm add "file:../qits-integrations-angular/dist/qits-integrations-angular"   # after pnpm build
 ```
 
-Commit a `#<sha>` pin in the consumer only when cutting a consumable state.
+Note the path: the installable artifact is the build output, not the repo root. Drop the override
+and bump the version once the change is worth publishing.
 
 ## Packaging invariants (don't break these)
 
-- **The root `package.json` *is* the package** — a git dependency installs the repo root, so the
-  root manifest carries name/`exports`/`files`/`prepare`/peers, not the workspace-shell defaults.
-- **`files: ["dist/qits-integrations-angular"]` carries the build** — anything outside `files` is dropped when
-  pnpm packs the git dep.
-- **`prepare` builds on consumer install** — `ng build qits-integrations-angular && check-exports`; that second
-  run (consumer-side) is the whole distribution mechanism.
-- **Root `exports`/`peers` mirror `dist/qits-integrations-angular/package.json`** — ng-packagr writes the
-  authoritative manifest there; the consumer never sees it (they install the root), so the root
-  must mirror it. `pnpm check-exports` guards the mirror and is wired into `prepare`.
+- **The package is `dist/qits-integrations-angular`**, the ng-packagr output — never the repo root.
+  `npm publish` is pointed at that directory and the manifest ng-packagr wrote inside it.
+- **`projects/qits-integrations-angular/package.json` is the single source of truth** for name,
+  version, description, license, peers and runtime deps. ng-packagr copies it into the published
+  manifest, so a field that must reach the registry is added *there*.
+- **The root `package.json` keeps `private: true`** and carries no `name` worth publishing, no
+  `files`, no `exports` and no `prepare`. It is the workspace harness: the devDependencies that
+  build and test the library, and the runtime deps the sources resolve against while doing so.
+- **Root `dependencies` mirror the published manifest's** — the workspace builds against its own
+  `node_modules` while a consumer resolves what the manifest declares, and either direction of
+  drift ships a package whose imports resolve for nobody but us.
+- **`pnpm check-exports` guards all of the above** against `dist/` after a build, and CI runs it on
+  every push. Do not hand-edit anything in `dist/`.
 
-## Regression check (smoke the git install)
+## Regression check (smoke the published shape)
 
 ```bash
+pnpm build && pnpm check-exports
+cd dist/qits-integrations-angular && npm pack --dry-run   # prebuilt fesm + types + manifest, no sources
+
 pnpm dlx @angular/cli@21 new smoke --minimal --skip-git --defaults && cd smoke
-pnpm add "git+file://$(realpath ../qits-integrations-angular)#main"   # local git URL
-pnpm ng build                                            # compiles against installed dist types
-pnpm remove @qits/angular
-pnpm add "git+https://github.com/QuicklyIterateTheSoftware/qits-integrations-angular.git#<sha>"   # real remote, SHA-pinned
-pnpm ng build
+printf '@qits:registry=http://localhost:8081/artifacts/npm/npm/\n' > .npmrc
+pnpm add @qits/angular
+pnpm ng build                                            # compiles against the installed types
 ```
 
 ## Commands
@@ -257,4 +282,4 @@ pnpm ng build
 | `pnpm test` | `ng test qits-integrations-angular` (vitest builder, jsdom) |
 | `pnpm test:browser` | `*.browser.spec.ts` in headless Chromium (style freezing needs a real layout engine); needs a one-time `pnpm exec playwright install chromium` |
 | `pnpm lint` | `ng lint qits-integrations-angular` |
-| `pnpm check-exports` | verify root manifest mirrors `dist/qits-integrations-angular/package.json` |
+| `pnpm check-exports` | verify `dist/qits-integrations-angular` is publishable (run it after `pnpm build`) |
