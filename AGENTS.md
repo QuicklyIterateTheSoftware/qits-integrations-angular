@@ -159,9 +159,18 @@ the `pnpm.onlyBuiltDependencies` allowlist it needed have nothing left to do.
 - **`pnpm check-exports` guards all of it** against `dist/` after a build, and CI runs it on every
   push. Never hand-edit `dist/`.
 - **`dist/` is never committed on `main`** — CI rebuilds it before it publishes.
-- **Versioning is publish-if-absent.** CI publishes only when the registry lacks the version in
-  `projects/qits-integrations-angular/package.json`, so a release is a version-bump commit and
-  re-runs are free. Published versions are immutable; never try to re-publish one.
+- **Two pipelines publish, and they publish different things.** A push to `main` runs
+  `.config/qits/ci-post-receive.yml`, whose second step cuts a **prerelease**,
+  `<version in projects/qits-integrations-angular/package.json>-main.g<sha7>`, under the `main`
+  dist-tag. The **release** is `.config/qits/ci-event-release.yml`, which reacts to this
+  repository's own `SCMRelease`, checks out the version tag and publishes that version with no
+  `--tag`, so `latest` moves once per release. Releasing is
+  `POST /workspaces/api/branches/release`, never a version-bump commit.
+- **Both are publish-if-absent** — a re-run finds its version in the registry and succeeds without
+  touching it. Published versions are immutable; never try to re-publish one.
+- **A prerelease publish needs `--tag main`.** A bare `npm publish` means `--tag latest`, and the
+  registry refuses a publish that would move `latest` to a lower-sorting version: a missing flag is
+  a 403 and a red build, not a silent regression.
 
 ## Conventions (inherited from the qits webui)
 

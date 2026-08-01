@@ -1,0 +1,89 @@
+# The release pipeline: this repository reacts to its OWN release and publishes the tarball.
+#
+# THE SELECTION NAMES THIS REPOSITORY, WHICH READS LIKE A LOOP AND IS NOT. `SCMRelease` says only
+# "source control has this version" — qits-workspaces publishes it the instant the release push is
+# accepted, and nothing in this file publishes it. So a repository listening for its own SCMRelease
+# is exactly the release pipeline the split-release design asks each repository to own: the SCM half
+# fires, this half builds the tagged commit and publishes it, and qits-ci turns the green run into
+# one `SoftwareRelease` per entry under `artifacts:` below. The event that could loop is
+# SoftwareRelease, and this file neither listens for it nor publishes it.
+#
+# THAT SPLIT IS THE WHOLE POINT. The two events used to be one, fired at the push, which every
+# consumer read as "the package is in the registry" — with an entire upstream build in the gap. A
+# downstream bump pipeline triggering on SoftwareRelease can now install what it was told about,
+# because this pipeline went green first.
+#
+# `artifacts:` IS A DECLARATION, NOT A REPORT. qits-ci never learns how to publish anything, so it
+# cannot see what the step below pushed; it announces `{repository, version, packageType,
+# packageName}` on the strength of these two lines. Keep them true. The name is the exact registry
+# name and has to be quoted, since `@` is a reserved YAML indicator.
+#
+# THE PACKAGE IS `dist/qits-integrations-angular`, the ng-packagr output — never the repo root,
+# which keeps `private: true` and is the workspace harness.
+# `projects/qits-integrations-angular/package.json` is the single source of truth for the name and
+# the version, and ng-packagr copies it into the manifest inside `dist/`.
+event: SCMRelease
+when:
+  - repository: { exact: qits-integrations-angular }
+artifacts:
+  - { type: npm, name: "@qits/angular" }
+steps:
+  - image: qits/build-images/node-base:latest
+    # The push pipeline's budget. This step installs and builds the same way and runs neither the
+    # lint nor the tests, so it cannot be the slower of the two.
+    timeout-seconds: 1800
+    script: |
+      # -u is load-bearing for the same reason it is in ci-post-receive.yml: with the registry vars
+      # unset, an unset-tolerant script writes a registry-less .npmrc and publishes to npmjs.org
+      # instead of failing here.
+      set -eu
+
+      # THE EVENT, READ AS DATA. The payload reaches the container verbatim as one string in
+      # $QITS_EVENT_PAYLOAD — there is no per-field projection — and node parses it because
+      # node-base carries no jq.
+      version=$(node -p 'JSON.parse(process.env.QITS_EVENT_PAYLOAD).version')
+      echo "releasing @qits/angular@$version"
+
+      # THE TAG IS THE CHECKOUT TARGET, and it is the only reason this run needs one. An
+      # event-triggered run is cloned at the head of main, which is where the release commit is
+      # *now* — a later push moves that, and the tag does not, so a busy main cannot make this
+      # pipeline publish a different tree than the one that was released. The clone is shallow and
+      # carries no tags, hence the explicit refspec; the URL rather than `origin` because every
+      # address a step needs arrives as environment. `checkout --detach` peels the annotated tag to
+      # its commit.
+      git fetch "$QITS_CI_REPOSITORY_URL" "refs/tags/$version:refs/tags/$version"
+      git checkout --detach "$version"
+
+      cat > ~/.npmrc <<EOF
+      registry=${QITS_NPM_PROXY_URL}
+      @qits:registry=${QITS_NPM_REGISTRY_URL}
+      # npm-CLI ceremony only — qits-artifacts requires and reads no credential.
+      ${QITS_NPM_REGISTRY_URL#http:}:_authToken=qits-ci
+      EOF
+
+      # PUBLISH-IF-ABSENT, the same guard the push pipeline carries, and it earns its place here for
+      # a sharper reason: an event can be redelivered and versions are immutable, so a second run of
+      # one release must go green rather than fight the registry. Ahead of the build because a
+      # redelivery should cost seconds, not a full install.
+      if npm view "@qits/angular@$version" version >/dev/null 2>&1; then
+        echo "@qits/angular@$version is already published — skipping"
+        exit 0
+      fi
+
+      pnpm install --frozen-lockfile
+      pnpm build
+
+      # THE ONE ASSERTION WORTH MAKING. The release commit carries the stamped version in its
+      # manifest, and qits-ci announces the version out of the EVENT — two sources for one number.
+      # If they ever disagreed, the SoftwareRelease would name a version nobody published, which is
+      # precisely the lie the split exists to prevent. Stop here instead.
+      built=$(node -p "require('./dist/qits-integrations-angular/package.json').version")
+      if [ "$built" != "$version" ]; then
+        echo "the tag says $version and the built manifest says $built"
+        exit 1
+      fi
+
+      # NO --tag, DELIBERATELY: this is the real release, so claiming `latest` is what it is for.
+      # The registry allows it because it refuses only a move that goes *backwards* — the push
+      # pipeline's `-main.g<sha>` prerelease is the one that must carry an explicit `--tag main`.
+      npm publish ./dist/qits-integrations-angular

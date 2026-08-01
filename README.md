@@ -227,13 +227,26 @@ before any module code, so it stays an inline `index.html` script — the canoni
 
 ## Releasing
 
-There is no release command. `.config/qits/ci-post-receive.yml` runs lint, the jsdom specs and the
-build on every push to a tracked branch, then **publish-if-absent**: it reads the version from
-`projects/qits-integrations-angular/package.json`, asks the registry whether that version exists,
-and publishes `dist/qits-integrations-angular` only when it does not. So a release is an ordinary
-commit that bumps that one field, and doc-only pushes, re-runs and reverts stay green without
-touching the registry. Published versions are immutable — the registry rejects a re-publish, which
-is why the step never tries one.
+There is no release command, and two pipelines publish two different things.
+
+**A push cuts a prerelease.** `.config/qits/ci-post-receive.yml` runs lint, the jsdom specs and the
+build on every push to a tracked branch. Its second step is bound to `main` and publishes
+`<version in projects/qits-integrations-angular/package.json>-main.g<sha7>` under the `main`
+dist-tag — the last released version as the base, so the prerelease sorts just under the release it
+follows. The explicit tag is mandatory: a bare `npm publish` claims `latest`, and the registry
+refuses any publish that would move `latest` to a lower-sorting version.
+
+**A release publishes the version itself.** `.config/qits/ci-event-release.yml` reacts to this
+repository's own `SCMRelease` — published the moment a release push lands on `main` — checks out the
+annotated tag named for the version, builds it and publishes with no `--tag`, so `latest` moves
+forward exactly once per release. A green run makes qits-ci announce one `SoftwareRelease` naming
+`@qits/angular`, which is the event a downstream consumer can act on: the tarball exists by then.
+Releasing is `POST /workspaces/api/branches/release`, not a version-bump commit.
+
+Both are **publish-if-absent**: each asks the registry whether its version exists and skips,
+successfully, when it does. Doc-only pushes, re-runs, reverts and redelivered events stay green
+without touching the registry. Published versions are immutable — the registry rejects a
+re-publish, which is why neither step ever tries one.
 
 ## Developing against a consumer
 
