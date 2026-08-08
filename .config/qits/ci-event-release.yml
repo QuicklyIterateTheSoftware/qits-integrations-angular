@@ -57,7 +57,7 @@ steps:
       cat > ~/.npmrc <<EOF
       registry=${QITS_NPM_PROXY_URL}
       @qits:registry=${QITS_NPM_REGISTRY_URL}
-      # npm-CLI ceremony only — qits-artifacts requires and reads no credential.
+      # npm-CLI ceremony only — qits-platform-artifacts requires and reads no credential.
       ${QITS_NPM_REGISTRY_URL#http:}:_authToken=qits-ci
       EOF
 

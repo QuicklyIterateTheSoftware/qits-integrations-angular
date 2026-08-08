@@ -10,7 +10,7 @@
 # gets a fresh container and its own clone — so the publish step has to produce `dist/` itself.
 #
 # Neither step declares `docker: true`: `npm publish` needs no docker socket, no host daemon and no
-# root-equivalence — only HTTP from this step's container to qits-artifacts over qits-net, which
+# root-equivalence — only HTTP from this step's container to qits-platform-artifacts over qits-net, which
 # every step already has. So both keep the full sandbox (--cap-drop=ALL, no-new-privileges,
 # resource caps).
 #
@@ -41,7 +41,7 @@ steps:
 
       # The third line is npm-CLI ceremony and nothing else: the CLI refuses to publish when no
       # credential is configured for the target registry, a pre-flight that never reaches the wire.
-      # qits-artifacts requires and reads no credential. The parameter expansion strips the scheme,
+      # qits-platform-artifacts requires and reads no credential. The parameter expansion strips the scheme,
       # leaving the //host/path/ form npm keys credentials by — the one non-obvious line here.
       cat > ~/.npmrc <<EOF
       registry=${QITS_NPM_PROXY_URL}
